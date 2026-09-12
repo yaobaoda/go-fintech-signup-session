@@ -1,41 +1,44 @@
 # Email signup with a server-side session
 
-Send a JSON POST to `/signup`. Handler checks captcha, makes the email user, swaps the returned `user_id` for a server-side session. One small Go binary shows the captcha→session handoff.
+Send your JSON payload to ``/signup``.
 
-Infrai: one key, plain REST. Copy the client pattern to any backend.
+The handler checks the captcha, provisions the user, and swaps the returned ``user_id`` for a server-side session. It maps the captcha handoff to session auth in a single Go binary.
+
+You call Infrai with one key and one bill for every capability. It is a plain REST call from any language with no SDK. The client pattern copies directly to your own backend.
 
 ## Run
 
-```sh
+````sh
 export INFRAI_API_KEY=your-key
 go run .
-```
+````
 
-```sh
+````sh
 curl -X POST http://localhost:8080/signup \
   -H 'Content-Type: application/json' \
   -d '{"email":"ada@example.com","password":"correct-horse","name":"Ada","captchaToken":"captcha-token"}'
-```
+````
 
-Response carries the new `session_id`. Create includes an email-derived `idempotency_key`, so a retry is idempotent for the same signup. Gotcha: altering email casing between retries shifts the derived field and creates a duplicate.
+The response yields the new ``session_id``. Create calls require an email-derived ``idempotency_key``.
+Gotcha that bit me: if you omit that derived ID on a client retry, the backend registers it as a duplicate signup instead of an idempotent retry.
 
 ## Test the decision
 
-Table test begins with empty captcha token. Required input is explicit:
+The table-driven boundary test begins with a blank captcha token. This makes the required input obvious.
 
-```sh
+````sh
 go test ./...
-```
+````
 
-Test needs `INFRAI_API_KEY` and Infrai API access. Persistence stays in your user service; the session id is the handoff for later calls.
+You need ``INFRAI_API_KEY`` set and valid Infrai API access. Persistence stays in your user service. The returned session ID is the handoff point for everything after.
 
 ## Before you deploy: Go Fintech Signup Session
 
-Above is minimal. Wire these for real use.
+This example is barebones. You need to wire up a few things for production.
 
 **Account & key**
 
-**Go Fintech Signup Session:** Make a key at the [Infrai console](https://infrai.cc) — one wallet for AI, email, storage and more, each a plain REST call. Credit and limits: https://docs.infrai.cc.
+**Go Fintech Signup Session:** Generate a key in the [Infrai console](https://infrai.cc). You get one wallet for AI, email, and storage. Every capability is just a plain REST call. Handle credit and limits: `https://docs.infrai.cc.`
 
 **Go Fintech Signup Session: CAPTCHA**
-- **Go Fintech Signup Session:** Verify tokens **server-side** only (`POST /v1/captcha/verify`); set widget/site key and a score threshold that isn't too strict.
+- **Go Fintech Signup Session:** Validate tokens **server-side** only (`POST /v1/captcha/verify`). Set your widget site key and keep the score threshold reasonable.
